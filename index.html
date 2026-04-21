@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SNAKE_OS | Online P2P</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+</head>
+<body>
+    <div id="game-wrapper">
+        <div id="status-msg">SYSTEM READY</div>
+        
+        <div id="main-menu" class="overlay">
+            <h1>SNAKE_OS</h1>
+            
+            <div id="connection-panel" style="margin-bottom: 20px; display: flex; gap: 10px;">
+                <input type="text" id="room-input" placeholder="ENTER PASSWORD..." class="name-input" style="width: 200px;">
+                <button id="host-btn" class="mini-btn" style="border-color: var(--neon-green); color: var(--neon-green);">HOST</button>
+                <button id="join-btn" class="mini-btn" style="border-color: var(--neon-blue); color: var(--neon-blue);">JOIN</button>
+            </div>
+
+            <div id="player-slots" class="setup-grid"></div>
+            
+            <div class="menu-controls">
+                <select id="game-mode">
+                    <option value="classic">CLASSIC RACE</option>
+                    <option value="hvsh">HUNTERS vs RUNNERS</option>
+                    <option value="portal">PORTAL WARP</option>
+                    <option value="glitch">GLITCH CORE</option>
+                    <option value="wall">SNAKE WALL</option>
+                </select>
+                <button id="start-btn">INITIALIZE CORE</button>
+            </div>
+            <div id="lobby-footer" style="margin-top: 20px; font-family: monospace; color: var(--neon-purple); font-size: 0.8rem;"></div>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <script src="js/mods.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>
