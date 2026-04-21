@@ -54,19 +54,22 @@ document.getElementById('host-btn').onclick = () => {
     });
 
     peer.on('connection', (c) => {
-        if (activeConfigs.length >= 4) {
-            c.on('open', () => c.send({ type: 'ERROR', msg: 'Lobby Full' }));
-            return;
-        }
         clients.push(c);
+        
+        // When someone joins, add a player slot immediately
         addPlayer(); 
+
+        c.on('open', () => {
+            // Send full lobby data the moment the connection is open
+            c.send({ type: 'LOBBY_SYNC', configs: activeConfigs });
+        });
+
         c.on('data', (data) => {
             if (data.type === 'INPUT' && isHost) {
                 const pIdx = clients.indexOf(c) + 1;
                 handleDirectionChange(pIdx, data.key);
             }
         });
-        broadcast({ type: 'LOBBY_SYNC', configs: activeConfigs });
     });
 };
 
@@ -82,26 +85,36 @@ document.getElementById('join-btn').onclick = () => {
             document.getElementById('lobby-footer').innerText = "JOINED | PASSWORD: " + pass;
         });
         conn.on('data', (data) => {
-            if (data.type === 'LOBBY_SYNC') { activeConfigs = data.configs; renderMenu(); }
-            if (data.type === 'GAME_STATE') { players = data.players; apple = data.apple; countdown = data.countdown; gameState = data.state; }
+            // CRITICAL: Joiner updates their local menu when host sends data
+            if (data.type === 'LOBBY_SYNC') { 
+                activeConfigs = data.configs; 
+                renderMenu(); 
+            }
+            if (data.type === 'GAME_STATE') { 
+                players = data.players; 
+                apple = data.apple; 
+                countdown = data.countdown; 
+                gameState = data.state; 
+                // Close menu if game started while we were joining
+                if (gameState !== 'MENU') document.getElementById('main-menu').style.display = 'none';
+            }
             if (data.type === 'START') { startLocalGame(data.mode); }
-            if (data.type === 'ERROR') { alert(data.msg); location.reload(); }
         });
     });
 };
 
 function broadcast(data) {
-    if (isHost) clients.forEach(c => c.send(data));
+    if (isHost) clients.forEach(c => {
+        if (c.open) c.send(data);
+    });
 }
 
 // --- CORE MENU & PLAYER LOGIC ---
 
 function updatePlayerConfig(idx, key, value) {
     activeConfigs[idx][key] = value;
-    // If hosting, tell everyone else about the color/name change
-    if (isHost) broadcast({ type: 'LOBBY_SYNC', configs: activeConfigs });
-    // Re-render to show visual update
     renderMenu();
+    if (isHost) broadcast({ type: 'LOBBY_SYNC', configs: activeConfigs });
 }
 
 function addPlayer() {
@@ -130,20 +143,9 @@ function renderMenu() {
         <div class="player-config">
             ${(canEdit && activeConfigs.length > 1) ? `<button class="remove-btn" onclick="removePlayer(${i})">×</button>` : ''}
             <span style="font-size:10px; color:var(--neon-blue); font-weight:bold;">PLAYER ${i+1}</span>
-            
-            <input type="text" 
-                onchange="updatePlayerConfig(${i}, 'name', this.value)" 
-                value="${p.name}" 
-                class="name-input" 
-                ${!canEdit ? 'readonly' : ''}>
-            
-            <input type="color" 
-                onchange="updatePlayerConfig(${i}, 'color', this.value)" 
-                value="${p.color}" 
-                class="color-picker" 
-                ${!canEdit ? 'disabled' : ''} 
+            <input type="text" onchange="updatePlayerConfig(${i}, 'name', this.value)" value="${p.name}" class="name-input" ${!canEdit ? 'readonly' : ''}>
+            <input type="color" onchange="updatePlayerConfig(${i}, 'color', this.value)" value="${p.color}" class="color-picker" ${!canEdit ? 'disabled' : ''} 
                 style="width:40px; height:40px; cursor:pointer; background:none; border:none; filter: drop-shadow(0 0 5px ${p.color});">
-            
             <div class="key-grid">
                 <button style="grid-area: u">${keyMap[p.keys[0]] || '?'}</button>
                 <button style="grid-area: l">${keyMap[p.keys[2]] || '?'}</button>
@@ -164,22 +166,18 @@ window.addEventListener('keydown', e => {
     if (gameState !== 'PLAYING') return;
     if (!isOnline || isHost) {
         activeConfigs.forEach((config, i) => {
-            if (!isOnline || i === 0) { 
-                handleDirectionChange(i, e.keyCode);
-            }
+            if (!isOnline || i === 0) handleDirectionChange(i, e.keyCode);
         });
     } 
-    
-    if (isOnline && !isHost && conn) {
+    if (isOnline && !isHost && conn && conn.open) {
         conn.send({ type: 'INPUT', key: e.keyCode });
     }
 });
 
 function handleDirectionChange(pIdx, keyCode) {
     const p = players[pIdx];
-    if (!p || !canTurn) return;
+    if (!p) return;
     const [u, d, l, r] = activeConfigs[pIdx].keys;
-
     if (keyCode === l && p.dx === 0) { p.dx = -grid; p.dy = 0; }
     else if (keyCode === u && p.dy === 0) { p.dy = -grid; p.dx = 0; }
     else if (keyCode === r && p.dx === 0) { p.dx = grid; p.dy = 0; }
@@ -202,20 +200,18 @@ function update() {
                     if (p.cells.length > p.maxCells) p.cells.pop();
                     if (p.x === apple.x && p.y === apple.y) { p.maxCells++; spawnApple(); }
                 });
-                const collision = Mods.checkCollision(players, mode);
-                if (collision) { alert(collision.winner + " Wins!"); location.reload(); }
+                const col = Mods.checkCollision(players, mode);
+                if (col) { alert(col.winner + " Wins!"); location.reload(); }
             }
             if (isHost) broadcast({ type: 'GAME_STATE', players, apple, countdown, state: gameState });
         }
 
-        // DRAWING
         ctx.fillStyle = "#050505"; ctx.fillRect(0, 0, canvas.width, canvas.height);
         players.forEach((p, i) => {
+            if (!activeConfigs[i]) return; // Safety check
             ctx.fillStyle = activeConfigs[i].color;
-            ctx.shadowBlur = 10; ctx.shadowColor = ctx.fillStyle;
             p.cells.forEach(c => ctx.fillRect(c.x, c.y, grid-1, grid-1));
         });
-        ctx.shadowBlur = 0;
         ctx.fillStyle = "#ff3131"; ctx.beginPath();
         ctx.arc(apple.x + 10, apple.y + 10, 8, 0, Math.PI*2); ctx.fill();
 
