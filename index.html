@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SNAKE_OS | Online P2P</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>STQCKZZ SNAKE | SNAKE_OS</title>
     <link rel="stylesheet" href="css/style.css">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
@@ -11,11 +11,13 @@
     <div id="game-wrapper">
         <div id="status-msg">SYSTEM READY</div>
         
+        <button id="pause-trigger" style="display:none; position:absolute; top:60px; right:30px; z-index:90; padding:10px 15px; background:rgba(0,0,0,0.5); color:var(--neon-blue); border:1px solid var(--neon-blue); border-radius:8px; cursor:pointer; font-family:monospace; font-weight:bold;">|| PAUSE</button>
+
         <div id="main-menu" class="overlay">
-            <h1>SNAKE_OS</h1>
+            <h1>STQCKZZ SNAKE</h1>
             
-            <div id="connection-panel" style="margin-bottom: 20px; display: flex; gap: 10px;">
-                <input type="text" id="room-input" placeholder="ENTER PASSWORD..." class="name-input" style="width: 200px;">
+            <div id="connection-panel" style="margin-bottom: 30px; display: flex; gap: 15px;">
+                <input type="text" id="room-input" placeholder="SESSION_ID..." class="name-input" style="width: 220px; text-transform: uppercase;">
                 <button id="host-btn" class="mini-btn" style="border-color: var(--neon-green); color: var(--neon-green);">HOST</button>
                 <button id="join-btn" class="mini-btn" style="border-color: var(--neon-blue); color: var(--neon-blue);">JOIN</button>
             </div>
@@ -23,16 +25,35 @@
             <div id="player-slots" class="setup-grid"></div>
             
             <div class="menu-controls">
-                <select id="game-mode">
-                    <option value="classic">CLASSIC RACE</option>
-                    <option value="hvsh">HUNTERS vs RUNNERS</option>
-                    <option value="portal">PORTAL WARP</option>
-                    <option value="glitch">GLITCH CORE</option>
-                    <option value="wall">SNAKE WALL</option>
-                </select>
+                <div class="mode-selector">
+                    <label>EXECUTION_MODE</label>
+                    <select id="game-mode">
+                        <option value="classic">CLASSIC RACE</option>
+                        <option value="hvsh">HUNTERS vs RUNNERS</option>
+                        <option value="portal">PORTAL WARP</option>
+                        <option value="glitch">GLITCH CORE</option>
+                        <option value="wall">SNAKE WALL</option>
+                    </select>
+                </div>
                 <button id="start-btn">INITIALIZE CORE</button>
             </div>
-            <div id="lobby-footer" style="margin-top: 20px; font-family: monospace; color: var(--neon-purple); font-size: 0.8rem;"></div>
+            <div id="lobby-footer" style="margin-top: 30px; font-family: monospace; color: var(--neon-purple); font-size: 0.8rem; letter-spacing: 2px;"></div>
+        </div>
+
+        <div id="pause-menu" class="overlay" style="display: none;">
+            <h1 class="pause-title">SYSTEM_PAUSE</h1>
+            <div class="menu-controls">
+                <button id="resume-btn">RESUME CORE</button>
+                <button id="quit-btn" class="mini-btn" style="margin-top:20px; border-color: var(--neon-red); color: var(--neon-red); padding: 10px 30px;">TERMINATE SESSION</button>
+            </div>
+        </div>
+
+        <div id="post-game-menu" class="overlay" style="display: none;">
+            <h1 id="winner-text">GAME OVER</h1>
+            <div class="menu-controls">
+                <button id="play-again-btn" style="background: linear-gradient(45deg, var(--neon-blue), var(--neon-green)); border:none; padding: 18px 60px; border-radius:50px; color:white; font-weight:900; cursor:pointer;">RE-INITIALIZE</button>
+                <button id="quit-post-btn" class="mini-btn" style="margin-top:20px; border-color: var(--neon-red); color: var(--neon-red);">EXIT TO BIOS</button>
+            </div>
         </div>
 
         <canvas id="gameCanvas"></canvas>
