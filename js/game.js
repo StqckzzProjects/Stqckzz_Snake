@@ -1,3 +1,16 @@
+const socket = io(); // This connects the browser to your server.js
+
+// Listen for other players
+socket.on('currentPlayers', (players) => {
+    console.log("Active players in arena:", players);
+    // Here you would loop through 'players' and draw them to your canvas
+});
+
+// Example: When your snake moves, tell the server
+function sendPositionToServer(x, y) {
+    socket.emit('playerMovement', { x: x, y: y });
+}
+
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const grid = 20;
