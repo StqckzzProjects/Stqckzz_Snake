@@ -1,14 +1,20 @@
 const socket = io(); // This connects the browser to your server.js
 
-// Listen for other players
-socket.on('currentPlayers', (players) => {
-    console.log("Active players in arena:", players);
-    // Here you would loop through 'players' and draw them to your canvas
+// --- MULTIPLAYER SYNC FIX ---
+let myId = null;
+let myPlayerIdx = 0; 
+
+socket.on('currentPlayers', (serverPlayers) => {
+    myId = socket.id;
+    // We map your socket connection to a specific player index in your existing system
+    const playerIds = Object.keys(serverPlayers);
+    myPlayerIdx = playerIds.indexOf(myId); 
+    console.log("You are Player Index:", myPlayerIdx);
 });
 
 // Example: When your snake moves, tell the server
-function sendPositionToServer(x, y) {
-    socket.emit('playerMovement', { x: x, y: y });
+function sendPositionToServer(x, y, cells) {
+    socket.emit('playerMovement', { x: x, y: y, cells: cells });
 }
 
 const canvas = document.getElementById('gameCanvas');
@@ -21,7 +27,6 @@ let binding = null;
 let canTurn = true;
 
 // --- MOBILE & FOCUS DETECTION ---
-// Force true if you want to see them on MacBook for layout testing
 let isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
 // --- NETWORK STATE ---
@@ -49,7 +54,6 @@ const playerDefs = [
 let activeConfigs = [];
 let players = [];
 let apple = { x: 400, y: 240, type: 'normal' };
-let myPlayerIdx = 0; 
 
 function resize() { canvas.width = 800; canvas.height = 500; }
 window.addEventListener('resize', resize);
@@ -57,7 +61,6 @@ resize();
 
 // --- TOUCH CONTROL SETUP ---
 function setupMobileControls() {
-    // If you want to force these on your MacBook to see them, comment out the next line:
     if (!isTouchDevice) return; 
     
     if (document.getElementById('mobile-interface')) return;
@@ -79,18 +82,14 @@ function setupMobileControls() {
     `;
     document.body.appendChild(touchOverlay);
 
-    // This links the visual button to your actual keybinds in the config
     const bindTouch = (id, keyIndex) => {
         const el = document.getElementById(id);
-        
-        // Function to handle the input
         const triggerInput = (e) => {
             e.preventDefault();
             if (document.hidden || (gameState !== 'PLAYING' && gameState !== 'STARTING')) return;
 
-            // Grab the ACTUAL keycode from your current binds (Up=0, Down=1, Left=2, Right=3)
+            // FIX: Only trigger for YOUR player index
             const currentKey = activeConfigs[myPlayerIdx].keys[keyIndex];
-            
             handleDirectionChange(myPlayerIdx, currentKey);
 
             if (isOnline && !isHost && conn && conn.open) {
@@ -99,14 +98,13 @@ function setupMobileControls() {
         };
 
         el.addEventListener('touchstart', triggerInput, { passive: false });
-        // Optional: Adding mousedown so you can click them with a mouse on your Mac to test
         el.addEventListener('mousedown', triggerInput);
     };
 
-    bindTouch('btn-u', 0); // Links to whatever key is in the "Up" slot
-    bindTouch('btn-d', 1); // Down
-    bindTouch('btn-l', 2); // Left
-    bindTouch('btn-r', 3); // Right
+    bindTouch('btn-u', 0);
+    bindTouch('btn-d', 1);
+    bindTouch('btn-l', 2);
+    bindTouch('btn-r', 3);
 
     const pBtn = document.getElementById('btn-pause');
     const pauseLogic = (e) => { e.preventDefault(); togglePause(); };
@@ -263,10 +261,10 @@ window.addEventListener('keydown', e => {
     if (isOnline && !isHost && conn && conn.open) {
         conn.send({ type: 'INPUT', key: e.keyCode });
     } else {
-        activeConfigs.forEach((config, i) => {
-            const [u, d, l, r] = config.keys;
-            if ([u, d, l, r].includes(e.keyCode)) handleDirectionChange(i, e.keyCode);
-        });
+        // FIX: If we are online/socketed, only allow control of myPlayerIdx
+        const config = activeConfigs[myPlayerIdx];
+        const [u, d, l, r] = config.keys;
+        if ([u, d, l, r].includes(e.keyCode)) handleDirectionChange(myPlayerIdx, e.keyCode);
     }
 });
 
@@ -293,7 +291,6 @@ function update() {
                 Mods.applyRules(players, mode);
                 players.forEach((p, i) => {
                     if (p.isDead) return;
-                    if (mode === 'hvsh' && Mods.headstart > 0 && p.role === 'hunter') return;
                     p.x += p.dx; p.y += p.dy;
                     if (p.x < 0) p.x = canvas.width - grid; 
                     else if (p.x >= canvas.width) p.x = 0;
@@ -305,6 +302,8 @@ function update() {
                         p.maxCells++; 
                         spawnApple(); 
                     }
+                    // SYNC TO RENDER SERVER
+                    if (i === myPlayerIdx) sendPositionToServer(p.x, p.y, p.cells);
                 });
                 const col = Mods.checkCollision(players, mode);
                 if (col) { showPostGameMenu(col.winner); return; }
